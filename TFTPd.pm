@@ -99,7 +99,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw( );
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 our $LASTERROR;
 
@@ -155,6 +155,7 @@ sub new
 					return (undef);
 				}
 				$params{'Family'} = $AF_INET6;
+				$params{'V6Only'} = 1;
 			}
 		}
 		else
