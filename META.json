@@ -1,7 +1,9 @@
 {
    "abstract" : "Perl extension for Trivial File Transfer Protocol Server",
    "author" : [
-      "Luigino Masarati <lmasarati@hotmail.com>"
+      "Luigino Masarati <lmasarati@hotmail.com>",
+      "Michael Vincent <vinsworld@spamcop.net>",
+      "Michal Ingeli <mi@v3.sk>"
    ],
    "dynamic_config" : 1,
    "generated_by" : "ExtUtils::MakeMaker version 6.72, CPAN::Meta::Converter version 2.132140",
@@ -35,5 +37,5 @@
       }
    },
    "release_status" : "stable",
-   "version" : "0.10"
+   "version" : "0.11"
 }
