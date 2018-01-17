@@ -15,9 +15,8 @@ GetOptions(
   '6!'          => \$opt{6},
   'directory=s' => \$opt{dir},
   'interface:i' => \$opt{interface},
-  'time!'       => \$opt{time},
   'help!'       => \$opt_help,
-  'man!'        => \$opt_man
+  'man!'        => \$opt_man,
 ) or pod2usage(-verbose => 0);
 
 pod2usage(-verbose => 1) if defined $opt_help;
@@ -28,8 +27,6 @@ my $family = 4;
 if ($opt{6}) {
     $family = 6
 }
-
-$opt{time} = $opt{time} || 0;
 
 # -d is a directory, if it exists, assign it
 if (defined $opt{dir}) {
@@ -60,8 +57,15 @@ if (defined $opt{interface}) {
 my $tftpd = Net::TFTPd->new(
     RootDir   => $opt{dir},
     Writable  => 1,
+	Readable  => 0,
     LocalPort => $opt{interface},
-    Family    => $family
+    Family    => $family,
+	TempFile  => 1,
+	PostRecvCallBack => sub {
+		my $req = shift;
+		my $cmd = sprintf("git add '%s'; git commit -a -m 'from %s';", $req->getFileName, $req->getPeerAddr);
+		printf "PID(%u), EXECUTE(%s)\n", $$, $cmd;
+	},
 );
 
 if (!$tftpd) {
@@ -79,30 +83,30 @@ my $tftpdRQ;
 while (1) {
     if (!($tftpdRQ = $tftpd->waitRQ())) { next }
 
-    my $p = sprintf "%s\t%s\t%i\t%s\t%s\t%s", ($opt{time} ? yyyymmddhhmmss() : time), $tftpdRQ->getPeerAddr, $tftpdRQ->getPeerPort, $OPCODES{$tftpdRQ->{_REQUEST_}->{OPCODE}}, $tftpdRQ->getMode, $tftpdRQ->getFileName;
-    print "$p\tSTARTED\n";
-
     my $pid = fork();
+
 
     if (!defined $pid) {
         print "fork() Error!\n";
-        exit
-    } elsif ($pid == 0) {
-        printf $p;
-        if (defined $tftpdRQ->processRQ()) {
-            printf "\tSUCCESS [%i bytes]\n", $tftpdRQ->getTotalBytes
+        exit;
+    }
+	elsif ($pid == 0) {
+		printf "FORKED(%u)\n", $$;
+		printf "PID(%u), PEER(%s, %u), OP(%s, %s, %s)\n", 
+			$$, $tftpdRQ->getPeerAddr, $tftpdRQ->getPeerPort,
+			$OPCODES{$tftpdRQ->{_REQUEST_}->{OPCODE}}, $tftpdRQ->getMode, $tftpdRQ->getFileName;
+
+		if (defined $tftpdRQ->processRQ()) {
+            printf "PID(%u), SUCCESS(%i bytes), FILE(%s)\n", $$, $tftpdRQ->getTotalBytes, $tftpdRQ->getFileName;
         } else {
-            print "\t" . Net::TFTPd->error . "\n"
+			my $err = Net::TFTPd->error;
+			chomp $err;
+            printf "PID(%u), ERROR(%s)\n", $$, $err;
         }
         exit
     } else {
         # parent
     }
-}
-
-sub yyyymmddhhmmss {
-    my @time = localtime();
-    return (($time[5] + 1900) . ((($time[4] + 1) < 10)?("0" . ($time[4] + 1)):($time[4] + 1)) . (($time[3] < 10)?("0" . $time[3]):$time[3]) . (($time[2] < 10)?("0" . $time[2]):$time[2]) . (($time[1] < 10)?("0" . $time[1]):$time[1]) . (($time[0] < 10)?("0" . $time[0]):$time[0]))
 }
 
 __END__
@@ -129,9 +133,6 @@ Listens for TFTP requests and proccess them.
 
  -i #             UDP Port to listen on.
  --interface      DEFAULT:  (or not specified) 69.
-
- -t               Print time in human-readable yyyymmddhhmmss format.
- --time           DEFAULT:  (or not specified) Unix epoch.
 
 =head1 LICENSE
 
