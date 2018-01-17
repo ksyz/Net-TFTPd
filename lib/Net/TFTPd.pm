@@ -119,7 +119,7 @@ sub new
 	my %cfg = @_;
 
 	# setting defaults
-	$cfg{'FileName'} or $cfg{'RootDir'} or croak "Usage: \$tftpdOBJ = Net::TFTPd->new(['RootDir' => 'path/to/files' | 'FileName' => 'path/to/file'] [, [ LocalPort => portnum ] [, ...]] );";
+	$cfg{'FileName'} or $cfg{'RootDir'} or $cfg{'TempFile'} or croak "Usage: \$tftpdOBJ = Net::TFTPd->new(['RootDir' => 'path/to/files' | 'FileName' => 'path/to/file'] [, [ LocalPort => portnum ] [, ...]] );";
 
 	if ($cfg{'RootDir'} and not -d($cfg{'RootDir'}) )
 	{
@@ -131,6 +131,12 @@ sub new
 	{
 		$LASTERROR = sprintf 'FileName \'%s\' not found or is not a valid filename\n', $cfg{'FileName'};
 		return (undef);
+	}
+
+	if ($cfg{'TempFile'}) {
+		$cfg{'TempFile'} = 1;
+		require File::Temp;
+		require File::Copy;
 	}
 
 	my %params = (
@@ -201,6 +207,7 @@ sub new
 				'CallBack'    => undef,
 				'BlkSize'     => TFTP_DEFAULT_BLKSIZE,
 				'Debug'       => 0,
+				'TempFile'    => 0,
 				%cfg,         # merge user parameters
 				'_UDPSERVER_' => $udpserver
 			}, $class;
@@ -225,6 +232,7 @@ sub new
 				'CallBack'    => undef,
 				'BlkSize'     => TFTP_DEFAULT_BLKSIZE,
 				'Debug'       => 0,
+				'TempFile'    => 0,
 				%cfg,         # merge user parameters
 				'_UDPSERVER_' => $udpserver
 			}, $class;
@@ -420,7 +428,7 @@ sub processRQ
 					return (undef);
 				}
 
-				if (!defined($self->checkFILE()))
+				if (!defined($self->checkFILE()) && defined($self->tempFILE))
 				{
 					# RFC 2347 options negotiated
 					if (defined($self->openFILE()))
@@ -431,6 +439,11 @@ sub processRQ
 							# file opened for write, start the transfer
 							if (defined($self->recvFILE()))
 							{
+								if (!defined($self->copyTEMP))
+								{
+									$self->sendERR(8);
+									return (undef);
+								}
 								# file received successfully
 								return (1);
 							}
@@ -1085,6 +1098,50 @@ sub openFILE
 	}
 }
 
+sub tempFILE 
+{
+	my $self = shift;
+
+	return 1
+		unless $self->{'TempFile'};
+
+	# $File::Temp::KEEP_ALL = 1;
+	# my $tmp = File::Temp->new(UNLINK => 0, OPEN => 0);
+	my $tmp;
+	if (ref $self->{'TempFile'})
+	{	
+		$tmp = $self->{'TempFile'};
+	}
+	else
+	{
+		$tmp = File::Temp->new(OPEN => 0)
+			or return undef;
+	}
+
+	$self->{'_REQUEST_'}{'OrigFileName'} = $self->{'_REQUEST_'}{'FileName'} || $tmp;
+	$self->{'_REQUEST_'}{'FileName'} = $tmp;
+
+	return 1;
+}
+
+sub copyTEMP {
+	my $self = shift;
+
+	return 1
+		unless $self->{'TempFile'};
+
+	unless (File::Copy::copy($self->{'_REQUEST_'}{'FileName'}, $self->{'_REQUEST_'}{'OrigFileName'}))
+	{
+		$LASTERROR = $!;
+		return undef;
+	}
+	else
+	{
+		$self->{'_REQUEST_'}{'FileName'} = $self->{'_REQUEST_'}{'OrigFileName'};
+		return 1;
+	}
+}
+
 #
 # Usage: $requestOBJ->closeFILE()
 # returns 1 if file is success, undef if error
@@ -1363,6 +1420,8 @@ Valid options are:
   Writable   Clients are allowed to write files                       0
   BlkSize    Minimum blocksize to negotiate for transfers           512
   CallBack   Reference to code executed for each transferred block    -
+  TempFile   Use tmp files for writing, then copy. Or provide         0
+             File::Temp instance.
   Debug      Activates debug mode (verbose)                           0
   Family     Address family IPv4/IPv6                              IPv4
                Valid values for IPv4:
