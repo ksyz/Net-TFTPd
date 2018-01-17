@@ -2,9 +2,10 @@ Changes
 Makefile.PL
 MANIFEST
 README
-test.pl
-simpleTFTPd.pl
-TFTPd.pm
-TFTPd.html
-META.yml                                 Module YAML meta-data (added by MakeMaker)
+bin/tftpd-simple.pl
+bin/simpleTFTPd.pl
+t/00-Net-TFTPd.t
+t/03-test-pod.t
+lib/Net/TFTPd.pm
+META.yml                                 Module meta-data (added by MakeMaker)
 META.json                                Module JSON meta-data (added by MakeMaker)

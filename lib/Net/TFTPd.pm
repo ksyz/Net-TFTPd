@@ -99,7 +99,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw( );
 
-our $VERSION = '0.07';
+our $VERSION = '0.10';
 
 our $LASTERROR;
 
@@ -155,7 +155,9 @@ sub new
 					return (undef);
 				}
 				$params{'Family'} = $AF_INET6;
-				$params{'V6Only'} = 1;
+				if ($^O ne 'MSWin32') {
+					$params{'V6Only'} = 1;
+				}
 			}
 		}
 		else
@@ -168,7 +170,17 @@ sub new
 	{
 		$params{'Family'} = AF_INET;
 	}
-	
+
+	if (defined($cfg{'V6Only'}))
+    {
+	    if (!$HAVE_IO_Socket_IP)
+		{
+			$LASTERROR = "IO::Socket::IP required for V6Only";
+			return (undef);
+        }
+        $params{'V6Only'} = $cfg{'V6Only'};
+    }
+
 	# bind only to specified address
 	if ($cfg{'LocalAddr'})
 	{
@@ -1357,6 +1369,7 @@ Valid options are:
                  4, v4, ip4, ipv4, AF_INET (constant)
                Valid values for IPv6:
                  6, v6, ip6, ipv6, AF_INET6 (constant)
+  V6Only     Enable / disable v6only (see IO::Socket::IP)             1
 
 B<NOTE>:  IPv6 requires B<IO::Socket::IP>.  Failback is B<IO::Socket::INET> 
 and only IPv4 support.
