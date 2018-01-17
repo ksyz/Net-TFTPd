@@ -205,6 +205,7 @@ sub new
 				'Readable'    => 1,
 				'Writable'    => 0,
 				'CallBack'    => undef,
+				'PostRecvCallBack'    => undef,
 				'BlkSize'     => TFTP_DEFAULT_BLKSIZE,
 				'Debug'       => 0,
 				'TempFile'    => 0,
@@ -230,6 +231,7 @@ sub new
 				'Readable'    => 1,
 				'Writable'    => 0,
 				'CallBack'    => undef,
+				'PostRecvCallBack'    => undef,
 				'BlkSize'     => TFTP_DEFAULT_BLKSIZE,
 				'Debug'       => 0,
 				'TempFile'    => 0,
@@ -439,7 +441,11 @@ sub processRQ
 							# file opened for write, start the transfer
 							if (defined($self->recvFILE()))
 							{
-								if (!defined($self->copyTEMP))
+								if($self->{'PostRecvCallBack'})
+								{
+									&{$self->{'PostRecvCallBack'}}($self);
+								}
+								elsif (!defined($self->copyTEMP))
 								{
 									$self->sendERR(8);
 									return (undef);
@@ -1420,6 +1426,7 @@ Valid options are:
   Writable   Clients are allowed to write files                       0
   BlkSize    Minimum blocksize to negotiate for transfers           512
   CallBack   Reference to code executed for each transferred block    -
+  PostRecvCallBack Code executed after file was written               -
   TempFile   Use tmp files for writing, then copy. Or provide         0
              File::Temp instance.
   Debug      Activates debug mode (verbose)                           0
